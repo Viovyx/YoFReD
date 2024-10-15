@@ -32,6 +32,4 @@ Make sure to replace the parameters inside `<...>` with your own parameters!
 ## TO-DO
 
 - [ ] add help command
-- [ ] add delete reminder option
-- [ ] add ID's for easier identification
 - [ ] add check for reminding

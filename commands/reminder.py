@@ -73,11 +73,19 @@ class Reminder(Extension):
         log_command(ctx=ctx, cmd="reminder.create")
 
         user = user if user else ctx.user
+        db = TinyDB(f'{ROOT_DIR}/db/reminders.json', indent=4, create_dirs=True)
+        db.default_table_name = f'{user.id}'
+        reminders = db.all()
 
         if user.id != ctx.user.id and private:
             await ctx.send("ERROR: You can't create a private reminder for someone else!", ephemeral=True)
             return
-
+        
+        if reminders:
+            last_id = max(reminder['id'] for reminder in reminders)
+            id = last_id + 1
+        else:
+            id = 1    
 
         try:
             time = self.get_unix_time(time)
@@ -86,9 +94,8 @@ class Reminder(Extension):
             return
 
 
-        db = TinyDB(f'{ROOT_DIR}/db/reminders.json', indent=4, create_dirs=True)
-        db.default_table_name = f'{user.id}'
         db.insert({
+            "id": id,
             "title": title, 
             "content": content, 
             "unix-time": time,
@@ -99,7 +106,7 @@ class Reminder(Extension):
 
         msg_embed = Embed(
             title=f"{'Private reminder' if private else 'Reminder'} created succesfully!",
-            description=f"**{title}** \n {content if content else ''}",
+            description=f"**{title}** (id: {id}) \n {content if content else ''}",
             color="#02ce0c",
             fields=[
                 EmbedField(name="Created by", value=ctx.user.mention, inline=True),
@@ -157,10 +164,73 @@ class Reminder(Extension):
             name = f"{'(Private) ' if r['private'] else ''}{r['title']}"
             content = r['content'] if r['content'] else ''
             time = f"<t:{r['unix-time']}:R>"
+            id = r['id']
 
             msg_embed.add_field(
-                name=name, 
+                name=f"{name} (id: {id})", 
                 value=content + "\n" + time, 
                 inline=False)
 
         await ctx.send(embed=msg_embed, ephemeral=private)
+
+    @reminder.subcommand(
+        sub_cmd_name="delete",
+        sub_cmd_description="Delete a reminder by its id.",
+        options=[
+            interactions.SlashCommandOption(
+                name="id",
+                description="Which reminder should be deleted?",
+                type=interactions.OptionType.INTEGER,
+                required=True
+            ),
+            interactions.SlashCommandOption(
+                name="user",
+                description="Which user's reminder should be deleted? Default is yourself.",
+                type=interactions.OptionType.USER,
+                required=False
+            ),
+        ],
+    )
+    async def reminder_delete(self, ctx: SlashContext, user: interactions.Member = None, id: int = None):
+        log_command(ctx=ctx, cmd="reminder.delete")
+
+        user = user if user else ctx.user
+        db = TinyDB(f'{ROOT_DIR}/db/reminders.json', indent=4, create_dirs=True)
+        db.default_table_name = f'{user.id}'
+        reminders = db.all()
+
+        if not reminders:
+            await ctx.send(f"ERROR: No reminders found for {user.mention}!", ephemeral=True)
+            return
+        
+        reminder = db.search(User['id'] == id)
+
+        if not reminder:
+            await ctx.send(f"ERROR: Reminder with id {id} not found for {user.mention}!", ephemeral=True)
+            return
+        elif user.id != ctx.user.id and reminder[0]['created-by'] != ctx.user.id:
+            await ctx.send("ERROR: You can't delete someone else's reminder that you haven't created!", ephemeral=True)
+            return
+        
+        reminder = reminder[0]
+
+        if reminder['created-by'] == ctx.user.id and not reminder['private']:
+            hidden = False
+        else:
+            hidden = True
+
+        msg_embed = Embed(
+            title=f"Reminder deleted succesfully!",
+            description=f"**{reminder['title']}** (id: {id}) \n {reminder['content'] if reminder['content'] else ''}",
+            color="#f73711",
+            fields=[
+                EmbedField(name="Created by", value=ctx.user.mention, inline=True),
+                EmbedField(name="Created for", value=user.mention, inline=True),
+                EmbedField(name="Time", value=f"<t:{reminder['unix-time']}:R>", inline=True),
+            ]
+        )
+
+        db.remove(User['id'] == id)
+        db.close()
+
+        await ctx.send(embed=msg_embed, ephemeral=hidden)
