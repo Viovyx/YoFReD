@@ -1,6 +1,9 @@
-# YoFReD
+# YoFReD (Your Friendly Reminder Discord bot)
 
-Your Friendly Reminder Discord bot.
+> [!WARNING]  
+> This bot is still very much in development and not fully functional yet!
+> 
+> Keep an eye on the TO-DO list for future plans.
 
 A Discord bot made with Python used for making reminders for yourself and friends!
 
