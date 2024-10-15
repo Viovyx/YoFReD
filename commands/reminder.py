@@ -9,6 +9,28 @@ from shared import ROOT_DIR, User
 
 
 class Reminder(Extension):
+    def get_unix_time(self, time: str):
+        time = time.lower()
+        times = time.split()
+
+        weeks, days, hours, minutes = 0, 0, 0, 0
+
+        for t in times:
+            weeks = int(t[:-1]) if 'w' in t else weeks
+            days = int(t[:-1]) if 'd' in t else days
+            hours = int(t[:-1]) if 'h' in t else hours
+            minutes = int(t[:-1]) if 'm' in t else minutes
+        print(times)
+        print(weeks, days, hours, minutes)
+
+        future_timeH = datetime.now() + timedelta(weeks=weeks, days=days, hours=hours, minutes=minutes)
+        future_timeUnix = round(future_timeH.timestamp())
+
+        if future_timeUnix <= round(datetime.now().timestamp()):
+            raise ValueError
+        
+        return future_timeUnix
+
     @slash_command(
         name="reminder",
         dm_permission=False,
@@ -23,7 +45,7 @@ class Reminder(Extension):
             ),
             interactions.SlashCommandOption(
                 name="time",
-                description="When should the reminder be triggered? (Format: 31-04-2024T23:59:59 or +2h30m)",
+                description="When should the reminder be triggered relative to now? (Format: 1d 2h 30m or 1w -3h 15m)",
                 type=interactions.OptionType.STRING,
                 required=True
             ),
@@ -56,11 +78,11 @@ class Reminder(Extension):
             await ctx.send("ERROR: You can't create a private reminder for someone else!", ephemeral=True)
             return
 
-        # Check if time is in the future
+
         try:
-            time = datetime.strptime(time, '%d-%m-%YT%H:%M:%S') if '+' not in time else datetime.now() + timedelta(hours=int(time.replace('+', '').split('h')[0]), minutes=int(time.split('h')[1].split('m')[0]))
+            time = self.get_unix_time(time)
         except ValueError:
-            await ctx.send("ERROR: Invalid time format! Please use the format: 31-04-2024T23:59:59 or +2h30m", ephemeral=True)
+            await ctx.send("ERROR: Make sure your time is in the future and the formatting is correct! Use `/help` for more info.", ephemeral=True)
             return
 
 
@@ -69,10 +91,9 @@ class Reminder(Extension):
         db.insert({
             "title": title, 
             "content": content, 
-            "time": time.strftime("%d-%m-%YT%H:%M:%S"),
+            "unix-time": time,
             "private": private, 
-            "created-by": ctx.user.username, 
-            "created-by-id": ctx.user.id
+            "created-by": ctx.user.id
         })
         db.close()
 
@@ -83,7 +104,7 @@ class Reminder(Extension):
             fields=[
                 EmbedField(name="Created by", value=ctx.user.mention, inline=True),
                 EmbedField(name="Created for", value=user.mention, inline=True),
-                EmbedField(name="Time", value=time.strftime("%d-%m-%YT%H:%M:%S"), inline=True),  # TODO: Format time to unix timestamp
+                EmbedField(name="Time", value=f"<t:{time}:R>", inline=True),
             ]
         )
 
@@ -117,21 +138,29 @@ class Reminder(Extension):
         if user.id != ctx.user.id and private:
             await ctx.send("ERROR: You can't list someone else's private reminders!", ephemeral=True)
             return
-        
-        if user.id == ctx.user.id and private:
+        elif user.id == ctx.user.id and private:
             reminders = db.all()
         else:
             reminders = db.search(User['private'] == False)
 
-        print(f'Reminders: {reminders}')
-
         db.close()
+
+        if not reminders:
+            await ctx.send(f"ERROR: No reminders found for {user.mention}!", ephemeral=True)
+            return
 
         msg_embed = Embed(
             title=f"Reminders for {user.username}:",
             color="#d28854"
         )
         for r in reminders:
-            msg_embed.add_field(name=f"{'(Private)' if r['private'] else ''} {r['title']}", value=f"{r['content'] if r['content'] else ''} \n Time: {r['time']}", inline=False)  # TODO: Format time to unix timestamp
+            name = f"{'(Private) ' if r['private'] else ''}{r['title']}"
+            content = r['content'] if r['content'] else ''
+            time = f"<t:{r['unix-time']}:R>"
+
+            msg_embed.add_field(
+                name=name, 
+                value=content + "\n" + time, 
+                inline=False)
 
         await ctx.send(embed=msg_embed, ephemeral=private)
