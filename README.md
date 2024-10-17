@@ -28,6 +28,7 @@ Make sure to replace the parameters inside `<...>` with your own parameters!
 
     ```dotenv
     TOKEN='<YOUR BOTS TOKEN>'
+    REMINDER_CHANNEL_ID = '<THE CHANNEL-ID FOR REMINDERS>'
     ```
 5) Run the bot with `python3 main.py` and you're done!
 
