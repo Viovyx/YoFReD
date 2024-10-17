@@ -20,8 +20,6 @@ class Reminder(Extension):
             days = int(t[:-1]) if 'd' in t else days
             hours = int(t[:-1]) if 'h' in t else hours
             minutes = int(t[:-1]) if 'm' in t else minutes
-        print(times)
-        print(weeks, days, hours, minutes)
 
         future_timeH = datetime.now() + timedelta(weeks=weeks, days=days, hours=hours, minutes=minutes)
         future_timeUnix = round(future_timeH.timestamp())
@@ -109,8 +107,8 @@ class Reminder(Extension):
             description=f"**{title}** (id: {id}) \n {content if content else ''}",
             color="#02ce0c",
             fields=[
+                EmbedField(name="For", value=user.mention, inline=True),
                 EmbedField(name="Created by", value=ctx.user.mention, inline=True),
-                EmbedField(name="Created for", value=user.mention, inline=True),
                 EmbedField(name="Time", value=f"<t:{time}:R>", inline=True),
             ]
         )
@@ -161,14 +159,15 @@ class Reminder(Extension):
             color="#d28854"
         )
         for r in reminders:
+            id = r['id']
             name = f"{'(Private) ' if r['private'] else ''}{r['title']}"
             content = r['content'] if r['content'] else ''
             time = f"<t:{r['unix-time']}:R>"
-            id = r['id']
+            createdBy = r['created-by']
 
             msg_embed.add_field(
                 name=f"{name} (id: {id})", 
-                value=content + "\n" + time, 
+                value=f"{content} \n{time} \nCreated by: <@{createdBy}>", 
                 inline=False)
 
         await ctx.send(embed=msg_embed, ephemeral=private)
@@ -224,8 +223,8 @@ class Reminder(Extension):
             description=f"**{reminder['title']}** (id: {id}) \n {reminder['content'] if reminder['content'] else ''}",
             color="#f73711",
             fields=[
+                EmbedField(name="For", value=user.mention, inline=True),
                 EmbedField(name="Created by", value=ctx.user.mention, inline=True),
-                EmbedField(name="Created for", value=user.mention, inline=True),
                 EmbedField(name="Time", value=f"<t:{reminder['unix-time']}:R>", inline=True),
             ]
         )
@@ -234,3 +233,107 @@ class Reminder(Extension):
         db.close()
 
         await ctx.send(embed=msg_embed, ephemeral=hidden)
+
+    @reminder.subcommand(
+        sub_cmd_name="edit",
+        sub_cmd_description="Edit a reminder.",
+        options=[
+            interactions.SlashCommandOption(
+                name="id",
+                description="Which reminder should be edited?",
+                type=interactions.OptionType.INTEGER,
+                required=True
+            ),
+            interactions.SlashCommandOption(
+                name="user",
+                description="Which user's reminder should be edited? Default is yourself.",
+                type=interactions.OptionType.USER,
+                required=False
+            ),
+            interactions.SlashCommandOption(
+                name="change_title",
+                description="Change the title of the reminder.",
+                type=interactions.OptionType.STRING,
+                required=False
+            ),
+            interactions.SlashCommandOption(
+                name="change_time",
+                description="When should the reminder be triggered relative to now? (Format: 1d 2h 30m or 1w -3h 15m)",
+                type=interactions.OptionType.STRING,
+                required=False
+            ),
+            interactions.SlashCommandOption(
+                name="change_content",
+                description="Change the extra information of the reminder.",
+                type=interactions.OptionType.STRING,
+                required=False
+            ),
+            interactions.SlashCommandOption(
+                name="change_private",
+                description="Should the reminder be made (not) private?",
+                type=interactions.OptionType.BOOLEAN,
+                required=False
+            ),
+        ],
+    )
+    async def reminder_edit(self, ctx: SlashContext, id: int = None, user: interactions.Member = None, change_title: str = None, change_content: str = None, change_time: str = None, change_private: bool = None):
+        log_command(ctx=ctx, cmd="reminder.edit")
+
+        user = user if user else ctx.user
+        db = TinyDB(f'{ROOT_DIR}/db/reminders.json', indent=4, create_dirs=True)
+        db.default_table_name = f'{user.id}'
+        reminders = db.all()
+
+        title = change_title
+        content = change_content
+        time = change_time
+        private = change_private
+
+        if not reminders:
+            await ctx.send(f"ERROR: No reminders found for {user.mention}!", ephemeral=True)
+            return
+        
+        reminder = db.search(User['id'] == id)
+
+        if not reminder:
+            await ctx.send(f"ERROR: Reminder with id {id} not found for {user.mention}!", ephemeral=True)
+            return
+        elif reminder[0]['created-by'] != ctx.user.id:
+            await ctx.send("ERROR: You can't edit someone else's reminder!", ephemeral=True)
+            return
+        
+        reminder = reminder[0]
+
+        if title:
+            reminder['title'] = title
+        if content:
+            reminder['content'] = content
+        if private is not None:
+            if user.id != ctx.user.id:
+                await ctx.send("ERROR: You can't make a reminder private for someone else!", ephemeral=True)
+                return
+            reminder['private'] = private
+        if time:
+            try:
+                time = self.get_unix_time(time)
+            except ValueError:
+                await ctx.send("ERROR: Make sure your time is in the future and the formatting is correct! Use `/help` for more info.", ephemeral=True)
+                return
+            reminder['unix-time'] = time
+
+        db.update(reminder, User['id'] == id)
+        db.close()
+
+        msg_embed = Embed(
+            title=f"Reminder edited succesfully!",
+            description=f"**{reminder['title']}** (id: {id}) \n {reminder['content'] if reminder['content'] else ''}",
+            color="#f7f711",
+            fields=[
+                EmbedField(name="For", value=user.mention, inline=True),
+                EmbedField(name="Created by", value=ctx.user.mention, inline=True),
+                EmbedField(name="Time", value=f"<t:{reminder['unix-time']}:R>", inline=True),
+            ]
+        )
+
+        private = True if reminder['private'] else False
+        await ctx.send(embed=msg_embed, ephemeral=private)

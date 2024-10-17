@@ -1,19 +1,20 @@
 # YoFReD (Your Friendly Reminder Discord bot)
 
-> [!WARNING]  
-> This bot is still very much in development and not fully functional yet!
-> 
-> Keep an eye on the TO-DO list for future plans.
-
 A Discord bot made with Python used for making reminders for yourself and friends!
 
 The bot uses TinyDB to create file based databases in readable json format. This makes it easy to manage saved data.
 
 ## Current command list:
 
+##### General commands
+- `/ping`
+- `/help`
+
 ##### Reminder commands
 - `/reminder create`
 - `/reminder list`
+- `/reminder edit`
+- `/reminder delete`
 
 ## How to set up?
 1) Make sure you got an application set up [here](https://discord.com/developers/applications)
@@ -35,5 +36,4 @@ Make sure to replace the parameters inside `<...>` with your own parameters!
 ## TO-DO
 
 - [ ] add help command
-- [ ] add check for reminding
 - [ ] pishock support?
