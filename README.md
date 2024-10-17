@@ -36,5 +36,4 @@ Make sure to replace the parameters inside `<...>` with your own parameters!
 ## TO-DO
 
 - [ ] add help command
-- [ ] add check for reminding
 - [ ] pishock support?
