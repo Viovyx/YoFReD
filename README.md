@@ -36,5 +36,6 @@ Make sure to replace the parameters inside `<...>` with your own parameters!
 
 ## TO-DO
 
+- [ ] make private reminder hidden on reminding!!
 - [ ] add help command
 - [ ] pishock support?
