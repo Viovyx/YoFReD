@@ -28,6 +28,10 @@ async def check(bot):
                 )
                 private = reminder['private']
 
-                await channel.send(embed=msg_embed, content=f"||<@{user_id}>||", ephemeral=private)
+                if private:
+                    user = bot.get_user(user_id)
+                    await user.send(embed=msg_embed)
+                else:
+                    await channel.send(embed=msg_embed, content=f"||<@{user_id}>||")
                 db.remove(User['id'] == reminder['id'])
     db.close()
