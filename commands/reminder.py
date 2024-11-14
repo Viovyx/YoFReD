@@ -16,10 +16,10 @@ class Reminder(Extension):
         weeks, days, hours, minutes = 0, 0, 0, 0
 
         for t in times:
-            weeks += int(t[:-1]) if 'w' in t else weeks
-            days += int(t[:-1]) if 'd' in t else days
-            hours += int(t[:-1]) if 'h' in t else hours
-            minutes += int(t[:-1]) if 'm' in t else minutes
+            weeks += int(t[:-1]) if 'w' in t else 0
+            days += int(t[:-1]) if 'd' in t else 0
+            hours += int(t[:-1]) if 'h' in t else 0
+            minutes += int(t[:-1]) if 'm' in t else 0
 
         future_timeH = datetime.now() + timedelta(weeks=weeks, days=days, hours=hours, minutes=minutes)
         future_timeUnix = round(future_timeH.timestamp())
